@@ -2,6 +2,8 @@
 main:
 
 jal reader #store the input into memory
+jal printInput
+jal fragment
 jal exit
 
 
@@ -147,6 +149,131 @@ readInputFinish:
 	jr $ra
 
 
+	#===============================================================
+	# printInput- print the values of the input package
+	#===============================================================
+printInput:
+	subu $sp, 12
+	sw $ra, 8($sp)
+	
+	la $t0, message
+	lw $a0, 12($t0)
+	sw $a0, sourceStore
+	lw $a1, 16($t0)
+	sw $a1, destinationStore
+	lhu $a2, 4($t0)
+	sw $a2, identStore
+	lh $t1, 6($t0)
+	li $t2, 0x1FFF
+	and $a3, $t1, $t2
+	li $t2, 0x2000
+	and $t1, $t1, $t2
+	srl $t1, $t1, 13
+	sw $t1, ($sp)
+	lh $t1, 2($t0)
+	sw $t1, 4($sp)
+	sw $t1, sizeStore
+
+	jal printPacket
+
+	lw $ra, ($sp)
+	addu $sp, 4
+	jr $ra
+
+
+	#===============================================================
+	# printPacket- function to print packet in designated form given packet values
+	#$a0 - Source address field
+	#$a1 - Destination address field
+	#$a2 - Ident field
+	#$a3 - Offset field
+	#5th arguement - ($sp) - M flag field
+	#6th arguement - 4($sp)  - Packet size field 
+	#===============================================================
+printPacket:
+	move $t0, $a0
+
+	#print the header of a packet
+	la $a0, packetBorder
+	li $v0, 4
+	syscall 
+
+	#print the source address
+	la $a0, source
+	syscall
+
+	move $a0, $t0
+	li $v0, 1
+	syscall
+
+	#print the destination address
+	la $a0, destination
+	li $v0, 4
+	syscall
+
+	move $a0, $a1
+	li $v0, 1
+	syscall
+
+	#print the ident field
+	la $a0, ident
+	li $v0, 4
+	syscall
+
+	move $a0, $a2
+	li $v0, 1
+	syscall
+
+	#print the offset field
+	la $a0, offset
+	li $v0, 4
+	syscall
+
+	move $a0, $a3
+	li $v0, 1
+	syscall
+
+	#print the M flag field
+	la $a0, mFlag
+	li $v0, 4
+	syscall
+
+	lw $a0, ($sp)
+	li $v0, 1
+	syscall
+
+	#print the packet size
+	la $a0, size
+	li $v0, 4
+	syscall
+
+	lw $a0, 4($sp)
+	li $v0, 1
+	syscall
+
+	#print the packet end border
+	la $a0, newLine
+	li $v0, 4
+	syscall
+
+	la $a0, packetBorder
+	syscall
+	
+	#pop off the stack
+	addu $sp, 8
+
+	jr $ra
+
+	#===============================================================
+	# fragment- split the packet depending on MTU
+	#===============================================================
+	lw $t0, mtu
+
+	lw $a0, sourceStore
+	lw $a1, destinationStore
+	lw $a2, identStore
+
+	
 
 
 
@@ -164,3 +291,17 @@ exit:
 buffer: .space 1000 #defines a 1000 byte buffer
 message: .space 1000 #defines a 1000 byte buffer
 illegalCharacter: .asciiz "Illegal Character recieved as input.\n"
+packetBorder: .asciiz "#-------------------------------------------#\n"
+newLine: .asciiz "\n"
+source: .asciiz "Source Address: "
+destination: .asciiz "\nDestination Address: "
+ident: .asciiz "\nIdent: "
+offset: .asciiz "\nOffset: "
+mFlag: .asciiz "\nM flag: "
+size: .asciiz "\nPacket size: "
+mtu: .word 80
+sourceStore: .word 0
+destinationStore: .word 0
+identStore: .word 0
+sizeStore: .word 0
+
