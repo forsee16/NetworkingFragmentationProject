@@ -3,7 +3,7 @@ main:
 
 jal reader #store the input into memory
 jal printInput
-jal fragment
+#jal fragment
 jal exit
 
 
@@ -267,11 +267,11 @@ printPacket:
 	#===============================================================
 	# fragment- split the packet depending on MTU
 	#===============================================================
-	lw $t0, mtu
+	#lw $t0, mtu
 
-	lw $a0, sourceStore
-	lw $a1, destinationStore
-	lw $a2, identStore
+	#lw $a0, sourceStore
+	#lw $a1, destinationStore
+	#lw $a2, identStore
 
 	
 
@@ -288,20 +288,37 @@ exit:
 	
 
 	.data
+
+illegalCharacter: .asciiz "Illegal Character recieved as input.\n"
+.align 2
+packetBorder: .asciiz "#-------------------------------------------#\n"
+.align 2
+newLine: .asciiz "\n"
+.align 2
+source: .asciiz "Source Address: "
+.align 2
+destination: .asciiz "\nDestination Address: "
+.align 2
+ident: .asciiz "\nIdent: "
+.align 2
+offset: .asciiz "\nOffset: "
+.align 2
+mFlag: .asciiz "\nM flag: "
+.align 2
+size: .asciiz "\nPacket size: "
+.align 2
+mtu: .word 80
+.align 2
+sourceStore: .word 0
+.align 2
+destinationStore: .word 0
+.align 2
+identStore: .word 0
+.align 2
+sizeStore: .word 0
+.align 2
 buffer: .space 1000 #defines a 1000 byte buffer
 message: .space 1000 #defines a 1000 byte buffer
-illegalCharacter: .asciiz "Illegal Character recieved as input.\n"
-packetBorder: .asciiz "#-------------------------------------------#\n"
-newLine: .asciiz "\n"
-source: .asciiz "Source Address: "
-destination: .asciiz "\nDestination Address: "
-ident: .asciiz "\nIdent: "
-offset: .asciiz "\nOffset: "
-mFlag: .asciiz "\nM flag: "
-size: .asciiz "\nPacket size: "
-mtu: .word 80
-sourceStore: .word 0
-destinationStore: .word 0
-identStore: .word 0
-sizeStore: .word 0
+
+
 
