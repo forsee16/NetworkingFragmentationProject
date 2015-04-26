@@ -3,7 +3,7 @@ main:
 
 jal reader #store the input into memory
 jal printInput
-#jal fragment
+jal fragment
 jal exit
 
 
@@ -155,21 +155,35 @@ readInputFinish:
 printInput:
 	subu $sp, 12
 	sw $ra, 8($sp)
+
+	#tell the console that this is the package recieved as input
+	li $v0, 4
+	la $a0, inputAnnounce
+	syscall
 	
+	#load the packet that we recieved
 	la $t0, message
+	#find the source address and store it
 	lw $a0, 12($t0)
 	sw $a0, sourceStore
+	#find the destination address and store it
 	lw $a1, 16($t0)
 	sw $a1, destinationStore
+	#find the ident and store it 
 	lhu $a2, 4($t0)
 	sw $a2, identStore
+	#load the offset, AND it to drop the flags and store for printPacket call
 	lh $t1, 6($t0)
 	li $t2, 0x1FFF
 	and $a3, $t1, $t2
+	sw $a3, offsetStore
+	#use the offset load, AND to get M bit and store for printPacket call
 	li $t2, 0x2000
 	and $t1, $t1, $t2
 	srl $t1, $t1, 13
+	sw $t1, mBitStore
 	sw $t1, ($sp)
+	#load the length halfword, and store it
 	lh $t1, 2($t0)
 	sw $t1, 4($sp)
 	sw $t1, sizeStore
@@ -267,14 +281,107 @@ printPacket:
 	#===============================================================
 	# fragment- split the packet depending on MTU
 	#===============================================================
-	#lw $t0, mtu
+fragment:
+	subu $sp, 4
+	sw $ra, ($sp)
 
-	#lw $a0, sourceStore
-	#lw $a1, destinationStore
-	#lw $a2, identStore
+	#tell the console that the following packets are fragmented
+	li $v0, 4
+	la $a0, fragmentAnnounce
+	syscall
 
+fragmentStart:
+	#load total size
+	lw $t0, sizeStore
+	#add 20 to account for header
+	addiu $t0, $t0, 20
+	#load mtu
+	lw $t1, mtu
+	#if MTU >=Total size+20 (+20 to account for header space)
+	bge $t1, $t0, printOriginalPacket
+	#Psize = mut
+	move $t2, $t1
+	#HDR=20
+	li $t3, 20
+	#DFragSize=Psize-HDR
+	subu $t2, $t2, $t3
+	#DataSize=Totalsize-HDR
+	subu $t4, $t0, $t3
+	#if DataSize<=DFragSize
+	ble $t4, $t2, printLastPacket
+mtuDivisibleBy8Check:
+	#ensure that packets sizes are divisible by 8
+	li $t5, 8
+	div $t2, $t5
+	mfhi $t6
+	mflo $t7
+	bne $t6, $zero, decrementFragSize
+	b correctFragSize
+
+decrementFragSize:
+	subu $t2, 1
+	b mtuDivisibleBy8Check
+
+correctFragSize:
+	subu $sp, 8
+	#load parameters for call to printPacket
+	lw $a0, sourceStore
+	lw $a1, destinationStore
+	lw $a2, identStore
+	lw $a3, offsetStore
+	li $t5, 1
+	sw $t5, ($sp)
+	sw $t2, 4($sp)
+
+	jal printPacket
+
+	#update the size of the remaining packet
+	lw $t5, sizeStore
+	subu $t5, $t2
+	sw $t5, sizeStore
+
+	#update the offset for the remaining packet
+	lw $t5, offsetStore
+	addu $t5, $t5, $t7
+	sw $t5, offsetStore
+
+	b fragmentStart
 	
+printLastPacket:
+	subu $sp, 8
+	#load the parameters for call to printPacket
+	lw $a0, sourceStore
+	lw $a1, destinationStore
+	lw $a2, identStore
+	lw $a3, offsetStore
+	lw $t0, mBitStore
+	sw $t0, ($sp)
+	sw $t2, 4($sp)
+	
+	jal printPacket
 
+	lw $ra, ($sp)
+	addu $sp, 4
+	jr $ra
+
+
+printOriginalPacket:
+	subu $sp, 8
+	load the parameters for call to printPacket
+	lw $a0, sourceStore
+	lw $a1, destinationStore
+	lw $a2, identStore
+	lw $a3, offsetStore
+	lw $t0, mBitStore
+	sw $t0, ($sp)
+	lw $t1, sizeStore
+	sw $t1, 4($sp)
+	
+	jal printPacket
+
+	lw $ra, ($sp)
+	addu $sp, 4
+	jr $ra
 
 
 	#===============================================================
@@ -291,6 +398,9 @@ exit:
 
 illegalCharacter: .asciiz "Illegal Character recieved as input.\n"
 .align 2
+inputAnnounce: .asciiz "The package imported was:\n"
+.align 2
+fragmentAnnounce: .asciiz "\nThe fragmented package(s) are:\n"
 packetBorder: .asciiz "#-------------------------------------------#\n"
 .align 2
 newLine: .asciiz "\n"
@@ -307,13 +417,17 @@ mFlag: .asciiz "\nM flag: "
 .align 2
 size: .asciiz "\nPacket size: "
 .align 2
-mtu: .word 80
+mtu: .word 44
 .align 2
 sourceStore: .word 0
 .align 2
 destinationStore: .word 0
 .align 2
 identStore: .word 0
+.align 2
+offsetStore: .word 0
+.align 2
+mBitStore: .word 0
 .align 2
 sizeStore: .word 0
 .align 2
